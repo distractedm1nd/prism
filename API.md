@@ -1,4 +1,4 @@
-It makes sense and is necessary to build different frontends in order to use the transparency dictionaries. In the following section, we will provide a brief overview of the most important interfaces for interacting with Deimos.
+It makes sense and is necessary to build different frontends in order to use the transparency dictionaries. In the following section, we will provide a brief overview of the most important interfaces for interacting with Prism.
 
 ### Update the Dictionary
 

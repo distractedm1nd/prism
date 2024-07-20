@@ -1,6 +1,6 @@
 use crate::{
     consts::{CHANNEL_BUFFER_SIZE, DA_RETRY_COUNT, DA_RETRY_INTERVAL},
-    error::{DataAvailabilityError, DatabaseError, DeimosResult},
+    error::{DataAvailabilityError, DatabaseError, PrismResult},
 };
 use async_trait::async_trait;
 use ed25519_dalek::{Signer, SigningKey};
@@ -18,7 +18,7 @@ use tokio::{
 use crate::{
     cfg::Config,
     da::{DataAvailabilityLayer, EpochJson},
-    error::{DeimosError, GeneralError},
+    error::{PrismError, GeneralError},
     node_types::NodeType,
     storage::{ChainEntry, Database, IncomingEntry, Operation},
     utils::verify_signature,
@@ -40,7 +40,7 @@ pub struct Sequencer {
 
 #[async_trait]
 impl NodeType for Sequencer {
-    async fn start(self: Arc<Self>) -> DeimosResult<()> {
+    async fn start(self: Arc<Self>) -> PrismResult<()> {
         // start listening for new headers to update sync target
         if let Err(e) = self.da.start().await {
             return Err(DataAvailabilityError::InitializationError(e.to_string()).into());
@@ -82,7 +82,7 @@ impl Sequencer {
         da: Arc<dyn DataAvailabilityLayer>,
         cfg: Config,
         key: SigningKey,
-    ) -> DeimosResult<Sequencer> {
+    ) -> PrismResult<Sequencer> {
         let (tx, rx) = channel(CHANNEL_BUFFER_SIZE);
 
         let epoch_duration = match cfg.epoch_time {
@@ -194,7 +194,7 @@ impl Sequencer {
     /// 3. Waits for a specified duration before starting the next epoch.
     /// 4. Calls `set_epoch_commitment` to fetch and set the commitment for the current epoch.
     /// 5. Repeats steps 2-4 periodically.
-    pub async fn finalize_epoch(&self) -> DeimosResult<EpochJson> {
+    pub async fn finalize_epoch(&self) -> PrismResult<EpochJson> {
         let epoch = match self.db.get_epoch() {
             Ok(epoch) => epoch + 1,
             Err(_) => 0,
@@ -207,7 +207,7 @@ impl Sequencer {
         let current_commitment = self
             .create_tree()?
             .get_commitment()
-            .map_err(DeimosError::MerkleTree)?;
+            .map_err(PrismError::MerkleTree)?;
 
         self.db.add_commitment(&epoch, &current_commitment)?;
 
@@ -236,7 +236,7 @@ impl Sequencer {
             let empty_commitment = self.create_tree()?;
             empty_commitment
                 .get_commitment()
-                .map_err(DeimosError::MerkleTree)?
+                .map_err(PrismError::MerkleTree)?
         };
 
         let batch_circuit =
@@ -263,14 +263,14 @@ impl Sequencer {
         Ok(epoch_json_with_signature)
     }
 
-    async fn get_latest_height(&self) -> DeimosResult<EpochJson> {
+    async fn get_latest_height(&self) -> PrismResult<EpochJson> {
         match self.epoch_buffer_rx.lock().await.recv().await {
             Some(epoch) => Ok(epoch),
             None => Err(DataAvailabilityError::ChannelReceiveError.into()),
         }
     }
 
-    pub fn create_tree(&self) -> DeimosResult<IndexedMerkleTree> {
+    pub fn create_tree(&self) -> PrismResult<IndexedMerkleTree> {
         // TODO: better error handling (#11)
         // Retrieve the keys from input order and sort them.
         let ordered_derived_dict_keys: Vec<String> =
@@ -349,7 +349,7 @@ impl Sequencer {
         }
 
         // create tree, setting left / right child property for each node
-        IndexedMerkleTree::new(nodes).map_err(DeimosError::MerkleTree)
+        IndexedMerkleTree::new(nodes).map_err(PrismError::MerkleTree)
     }
 
     /// Updates an entry in the database based on the given operation, incoming entry, and the signature from the user.
@@ -357,7 +357,7 @@ impl Sequencer {
     /// # Arguments
     ///
     /// * `signed_entry` - A `UpdateEntryJson` object.
-    pub fn update_entry(&self, signed_entry: &UpdateEntryJson) -> DeimosResult<()> {
+    pub fn update_entry(&self, signed_entry: &UpdateEntryJson) -> PrismResult<()> {
         let signed_content =
             match verify_signature(signed_entry, Some(signed_entry.public_key.clone())) {
                 Ok(content) => content,

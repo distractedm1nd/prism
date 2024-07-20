@@ -1,6 +1,6 @@
 use crate::{
     cfg::WebServerConfig,
-    error::{DeimosError, DeimosResult, GeneralError},
+    error::{PrismError, PrismResult, GeneralError},
     node_types::sequencer::Sequencer,
     storage::{ChainEntry, IncomingEntry},
     utils::{decode_signed_message, is_not_revoked, Signable},
@@ -37,19 +37,19 @@ pub struct UpdateEntryJson {
 }
 
 impl Signable for UpdateEntryJson {
-    fn get_signature(&self) -> DeimosResult<Signature> {
+    fn get_signature(&self) -> PrismResult<Signature> {
         let signed_message_bytes = decode_signed_message(&self.signed_incoming_entry)?;
 
         // extract the first 64 bytes from the signed message which are the signature
         let signature_bytes: &[u8; 64] = match signed_message_bytes.get(..64) {
             Some(array_section) => match array_section.try_into() {
                 Ok(array) => array,
-                Err(e) => Err(DeimosError::General(GeneralError::DecodingError(format!(
+                Err(e) => Err(PrismError::General(GeneralError::DecodingError(format!(
                     "signed message to array: {}",
                     e
                 ))))?,
             },
-            None => Err(DeimosError::General(GeneralError::DecodingError(format!(
+            None => Err(PrismError::General(GeneralError::DecodingError(format!(
                 "extracting signature from signed message: {}",
                 &self.signed_incoming_entry
             ))))?,
@@ -58,13 +58,13 @@ impl Signable for UpdateEntryJson {
         Ok(Signature::from_bytes(signature_bytes))
     }
 
-    fn get_content_to_sign(&self) -> DeimosResult<String> {
+    fn get_content_to_sign(&self) -> PrismResult<String> {
         let signed_message_bytes = decode_signed_message(&self.signed_incoming_entry)?;
         let message_bytes = &signed_message_bytes[64..];
         Ok(String::from_utf8_lossy(message_bytes).to_string())
     }
 
-    fn get_public_key(&self) -> DeimosResult<String> {
+    fn get_public_key(&self) -> PrismResult<String> {
         Ok(self.public_key.clone())
     }
 }
@@ -166,7 +166,7 @@ async fn update_entry(
         }
     };
 
-    let result: DeimosResult<Vec<ChainEntry>> = session.db.get_hashchain(&incoming_entry.id);
+    let result: PrismResult<Vec<ChainEntry>> = session.db.get_hashchain(&incoming_entry.id);
     let update_proof = result.is_ok();
 
     match session.update_entry(&signature_with_key) {

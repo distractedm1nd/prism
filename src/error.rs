@@ -1,11 +1,11 @@
 use indexed_merkle_tree::error::MerkleTreeError;
 use thiserror::Error;
 
-// Result alias for [`DeimosError`]
-pub type DeimosResult<T> = Result<T, DeimosError>;
+// Result alias for [`PrismError`]
+pub type PrismResult<T> = Result<T, PrismError>;
 
 #[derive(Error, Debug)]
-pub enum DeimosError {
+pub enum PrismError {
     #[error(transparent)]
     General(#[from] GeneralError),
     #[error(transparent)]
